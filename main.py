@@ -6,23 +6,24 @@ import time
 
 t_0 = time.time()
 
-S = 5  # distribution points
-C = 3  # vehicles
-P = 15  # shipments
-A = 4  # max shipments per vehicle
+S = int(sys.argv[1])  # pontos de distribuição
+C = int(sys.argv[2])  # veículos
+P = int(sys.argv[3])  # encomendas
+A = int(sys.argv[4])  # quantidade máxima de encomendas por veículo
 
-assert C < A, "C is not lesser than A"
-assert A < P, "A is not lesser than P"
+assert C < A, "C não é menor que A"
+assert A < P, "A não é menor que P"
 
-ships_queue = [queue.Queue() for _ in range(int(S))]
+ships_queue = [queue.Queue() for _ in range(int(S))] # fila de encomendas por ponto de distribuição
 
 remaining_shipments = P
 remaining_shipments_lock = threading.Lock()
 
-pontos_lock = [threading.Lock() for _ in range(int(S))]
-veiculos_queue = [queue.Queue(maxsize=A) for _ in range(int(C))]
+pontos_lock = [threading.Lock() for _ in range(int(S))] # uma lock por ponto
+veiculos_queue = [queue.Queue(maxsize=A) for _ in range(int(C))] # fila de encomendas por veículo
 
-def log_file_inicialize(encomenda,event_time):
+# inicializar arquivo com os logs
+def log_file_initialize(encomenda,event_time):
     with open(f"shipment_{encomenda['id']}_trace.txt", "w") as f:
             f.write(f"Encomenda {encomenda['id']} criada\n")
             f.write(f"Origem: {encomenda['origem']}\n")
@@ -30,8 +31,8 @@ def log_file_inicialize(encomenda,event_time):
             f.write(f"Horario de criacao: {event_time}\n")
             f.write("\n")
 
+# salvar informações de carregamento/descarregamento de uma encomenda
 def log_shipment_trace(encomenda, status, event_time, vehicle_id=None):
-    """Log shipment information to a file."""
     with open(f"shipment_{encomenda['id']}_trace.txt", "a") as f:
         if status == "loaded":
             f.write(f"Carregada no veiculo {vehicle_id} no horario: {event_time}\n")
@@ -46,26 +47,26 @@ def shipment(i):
     global remaining_shipments
     num = i
     
-    # generate starting point and destination
+    # gerar ponto de início e de entrega
     start = random.randint(0, int(S) - 1)
     
     dest = random.randint(0, int(S) - 1)
     while dest == start:
         dest = random.randint(0, int(S) - 1)
 
-    # Create and log shipment
+    # Criar e salvar encomenda
     encomenda = {"id": num, "origem": start, "destino": dest, "entregue": False}
     ships_queue[start].put(encomenda)
     print(f"Encomenda {num} adicionada ao ponto {start} para o destino {dest}")
 
-    log_file_inicialize(encomenda,time.time() - t_0)
+    log_file_initialize(encomenda,time.time() - t_0)
 
     while not encomenda["entregue"]:
         time.sleep(1e-6)
     
     print(f"----- encomenda {num} entregue -----")
     with remaining_shipments_lock:
-        remaining_shipments -= 1  # Garante que apenas uma thread modifica de cada vez
+        remaining_shipments -= 1  # Garante que apenas uma thread modifique de cada vez
 
 
 def fill_vehicle(start_pos, id):
@@ -103,14 +104,14 @@ def fill_vehicle(start_pos, id):
             veiculos_queue[id].put(encomenda)
             print(f"Veiculo {id} pegando encomenda {encomenda['id']} no ponto {pos}")
            
-            log_shipment_trace(encomenda, "loaded",  time.time() - t_0, id)  # Log loading time
+            log_shipment_trace(encomenda, "loaded",  time.time() - t_0, id)  # tempo de carregamento
     
 
 def vehicle(i):
     global remaining_shipments
     num = i
     
-    # generate starting position
+    # gerar posição inicial
     start_pos = random.randint(0, int(S) - 1)
     while remaining_shipments > 0:
         fill_vehicle(start_pos, num)
@@ -118,7 +119,7 @@ def vehicle(i):
         time.sleep(travel_time)
         start_pos = (start_pos + 1) % S
 
-
+# Imprime informações atuais de um ponto
 def print_S(i):
     print(f"S:{i}")
     time.sleep(1)
